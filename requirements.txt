@@ -1,0 +1,25 @@
+# Document Parsing
+pypdf>=3.17.0
+pdfplumber>=0.10.0
+python-docx>=1.1.0
+
+# PPTX Generation
+python-pptx>=0.6.23
+
+# AI/LLM
+anthropic>=0.40.0
+
+# Data Validation
+pydantic>=2.5.0
+
+# CLI & UI
+typer>=0.9.0
+rich>=13.7.0
+
+# Utilities
+python-dotenv>=1.0.0
+loguru>=0.7.0
+
+# Charts (optional)
+matplotlib>=3.8.0
+Pillow>=10.0.0
