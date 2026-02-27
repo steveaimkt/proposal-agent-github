@@ -17,6 +17,23 @@ output/테스트 XX/        ← PPTX 출력 (생성 스크립트 + 결과물)
 
 ### 실행 단계
 
+**STEP 0: 레퍼런스 디자인 분석** (선택 — input 폴더에 PPTX 있을 때)
+- `input/` 폴더에 레퍼런스 PPTX 파일이 있으면 디자인 요소 추출
+- 추출 항목: 컬러 팔레트, 폰트, 레이아웃 패턴, 슬라이드 구조
+- 추출된 테마를 `apply_theme()` 또는 직접 `C[]` 딕셔너리에 적용
+- 사용법:
+```python
+from src.utils.reference_analyzer import ReferenceAnalyzer
+analyzer = ReferenceAnalyzer("input/레퍼런스.pptx")
+profile = analyzer.to_design_profile()  # 디자인 프로파일
+theme = analyzer.to_slide_kit_theme()   # slide_kit 테마 호환 형식
+# slide_kit에 적용:
+from src.generators.slide_kit import C, RGBColor
+for key, rgb in theme.items():
+    if key in C:
+        C[key] = RGBColor(*rgb)
+```
+
 **STEP 1: RFP 분석** (제안요청서 폴더 내 PDF 읽기)
 - `제안요청서/테스트 XX/` 내 모든 PDF를 분석
 - 추출 항목: 프로젝트명, 발주처, 과업 범위, 평가 기준, 예산, 일정, 특이사항
@@ -232,11 +249,15 @@ save_pptx(prs, "output/파일명.pptx")
 │   ├── orchestrators/      # 워크플로우 조율
 │   └── schemas/            # Pydantic 스키마
 │       └── proposal_schema.py  # Impact-8 스키마 (v3.0)
+│   └── utils/              # 유틸리티
+│       ├── logger.py           # 로깅 설정
+│       └── reference_analyzer.py  # 레퍼런스 PPTX 디자인 분석기
 ├── templates/              # PPTX 템플릿
 ├── company_data/           # 회사 정보
-├── input/                  # RFP 입력
+├── input/                  # 레퍼런스 PPTX 파일 (디자인 참조용)
+│   └── 서울배달플러스_홍보마케팅_제안서.pptx
 ├── output/                 # PPTX 출력
-└── 제안서/                 # 레퍼런스 제안서
+└── 제안서/                 # 레퍼런스 제안서 (PDF)
     └── reference_proposal.pdf (비공개)
 ```
 
