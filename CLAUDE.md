@@ -3,6 +3,8 @@
 ## 프로젝트 개요
 RFP(제안요청서) 문서를 입력받아 PPTX 형식의 입찰 제안서를 자동 생성하는 Python 에이전트 시스템
 
+**작동 방식**: Claude Code가 RFP를 분석하고, `slide_kit.py`를 import하는 Python 생성 스크립트를 직접 작성하여 실행합니다.
+
 **v3.6 업데이트**: v3.5 + 컬러 유틸(darken/lighten) + 21색 확장 팔레트 + 그라디언트 커버/섹션/클로징 + 그림자 프리셋(subtle/normal/elevated/card) + SemiBold/Medium 타이포 계층 + KPIS/GRID/COLS/TABLE/STAT_ROW/METRIC_CARD 시각 폴리시 + LINE_CHART smooth 버그 수정
 
 ## ★★★ 제안서 생성 워크플로우 (최우선 규칙)
@@ -88,16 +90,17 @@ for key, rgb in theme.items():
 **모든 제안서 생성 스크립트는 반드시 `src/generators/slide_kit.py`를 import하여 사용해야 합니다.**
 
 ```python
-# 스크립트 상단에 반드시 추가
-import sys; sys.path.insert(0, "/path/to/proposal-agent")
+# 스크립트 상단에 반드시 추가 (output/테스트 XX/ 에서 실행 기준)
+import sys, os
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
+sys.path.insert(0, PROJECT_ROOT)
 from src.generators.slide_kit import *
-
-# 또는 importlib 사용
-import importlib.util
-spec = importlib.util.spec_from_file_location('slide_kit', '프로젝트경로/src/generators/slide_kit.py')
-sk = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(sk)
 ```
+
+**경로 규칙:**
+- 생성 스크립트는 `output/테스트 XX/generate_제안서.py` 에 위치
+- `../..` 로 프로젝트 루트까지 올라가서 `src/generators/slide_kit.py` import
+- 절대경로 하드코딩 금지 → 반드시 `__file__` 기준 상대경로 사용
 
 ### slide_kit이 제공하는 것 (v3.6)
 
@@ -184,6 +187,12 @@ MT(불릿)   → 다음 요소:  0.20"
 ### 기본 사용 패턴
 
 ```python
+#!/usr/bin/env python3
+import sys, os
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
+sys.path.insert(0, PROJECT_ROOT)
+from src.generators.slide_kit import *
+
 prs = new_presentation()
 WIN = {"data": "...", "story": "...", "ugc": "..."}
 
@@ -252,33 +261,50 @@ save_pptx(prs, "output/파일명.pptx")
 │   └── utils/              # 유틸리티
 │       ├── logger.py           # 로깅 설정
 │       └── reference_analyzer.py  # 레퍼런스 PPTX 디자인 분석기
+├── examples/               # 예제 생성 스크립트
+│   └── example_generate.py     # slide_kit 사용 패턴 예시
 ├── templates/              # PPTX 템플릿
 ├── company_data/           # 회사 정보
 ├── input/                  # 레퍼런스 PPTX 파일 (디자인 참조용)
 │   └── 서울배달플러스_홍보마케팅_제안서.pptx
-├── output/                 # PPTX 출력
+├── 제안요청서/             # ★ RFP 입력 (PDF 문서들)
+│   └── 테스트 XX/              # 테스트별 RFP 문서 폴더
+├── output/                 # ★ PPTX 출력 (생성 스크립트 + 결과물)
+│   └── 테스트 XX/              # 테스트별 출력 폴더
 └── 제안서/                 # 레퍼런스 제안서 (PDF)
     └── reference_proposal.pdf (비공개)
 ```
 
 ## 사용법
 
+### 방법 1: Claude Code로 제안서 생성 (★ 메인 방식)
+
 ```bash
-# 의존성 설치
+# 1. 의존성 설치
 pip install -r requirements.txt
 
-# .env 설정
+# 2. RFP 문서를 제안요청서 폴더에 배치
+mkdir -p 제안요청서/테스트\ 01
+cp your_rfp.pdf 제안요청서/테스트\ 01/
+
+# 3. Claude Code에게 요청
+# "제안요청서 폴더에 있는 테스트 01 폴더 내 파일을 분석한 후 제안서를 제작해줘"
+
+# Claude Code가 자동으로:
+# → RFP 분석 → 콘텐츠 기획 → generate_제안서.py 작성 → 실행 → PPTX 생성
+```
+
+### 방법 2: CLI 자동 파이프라인 (대안)
+
+```bash
+# .env에 ANTHROPIC_API_KEY 설정 필요
 cp .env.example .env
-# ANTHROPIC_API_KEY 설정
 
-# 제안서 생성 (기본: Impact-8 구조)
-python main.py generate input/rfp.pdf -n "프로젝트명" -c "발주처"
+# Claude API 기반 자동 생성
+python main.py generate 제안요청서/테스트\ 01/rfp.pdf -n "프로젝트명" -c "발주처" -t marketing_pr
 
-# 프로젝트 유형 지정
-python main.py generate input/rfp.pdf -n "프로젝트명" -c "발주처" -t marketing_pr
-
-# RFP 분석만 수행
-python main.py analyze input/rfp.pdf
+# 레퍼런스 PPTX 디자인 분석
+python main.py reference-analyze input/서울배달플러스_홍보마케팅_제안서.pptx
 ```
 
 ## 제안서 구조: Impact-8 Framework
