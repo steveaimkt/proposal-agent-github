@@ -90,7 +90,7 @@ echo "ANTHROPIC_API_KEY=sk-ant-..." > .env
 python main.py generate 제안요청서/테스트\ 01/rfp.pdf -n "프로젝트명" -c "발주처"
 
 # 레퍼런스 PPTX 디자인 분석
-python main.py reference-analyze input/서울배달플러스_홍보마케팅_제안서.pptx
+python main.py reference-analyze examples/서울배달플러스_홍보마케팅_제안서.pptx
 ```
 
 ## 파이프라인
@@ -165,8 +165,7 @@ output/테스트 XX/제안서.pptx  ← 40~80장 PPTX 출력
 │   └── utils/
 │       ├── logger.py              # 로깅
 │       └── reference_analyzer.py  # 레퍼런스 PPTX 디자인 분석기
-├── examples/                      # 예제 생성 스크립트
-├── input/                         # 레퍼런스 PPTX (디자인 참조)
+├── examples/                      # 예제 스크립트 + 레퍼런스 PPTX
 ├── 제안요청서/                     # ★ RFP 입력 (PDF)
 ├── output/                        # ★ 생성 스크립트 + PPTX 출력
 └── docs/                          # 가이드 문서

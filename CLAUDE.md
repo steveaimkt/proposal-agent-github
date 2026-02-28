@@ -19,14 +19,14 @@ output/테스트 XX/        ← PPTX 출력 (생성 스크립트 + 결과물)
 
 ### 실행 단계
 
-**STEP 0: 레퍼런스 디자인 분석** (선택 — input 폴더에 PPTX 있을 때)
-- `input/` 폴더에 레퍼런스 PPTX 파일이 있으면 디자인 요소 추출
+**STEP 0: 레퍼런스 디자인 분석** (선택 — examples 폴더에 PPTX 있을 때)
+- `examples/` 폴더에 레퍼런스 PPTX 파일이 있으면 디자인 요소 추출
 - 추출 항목: 컬러 팔레트, 폰트, 레이아웃 패턴, 슬라이드 구조
 - 추출된 테마를 `apply_theme()` 또는 직접 `C[]` 딕셔너리에 적용
 - 사용법:
 ```python
 from src.utils.reference_analyzer import ReferenceAnalyzer
-analyzer = ReferenceAnalyzer("input/레퍼런스.pptx")
+analyzer = ReferenceAnalyzer("examples/레퍼런스.pptx")
 profile = analyzer.to_design_profile()  # 디자인 프로파일
 theme = analyzer.to_slide_kit_theme()   # slide_kit 테마 호환 형식
 # slide_kit에 적용:
@@ -261,12 +261,11 @@ save_pptx(prs, "output/파일명.pptx")
 │   └── utils/              # 유틸리티
 │       ├── logger.py           # 로깅 설정
 │       └── reference_analyzer.py  # 레퍼런스 PPTX 디자인 분석기
-├── examples/               # 예제 생성 스크립트
-│   └── example_generate.py     # slide_kit 사용 패턴 예시
 ├── templates/              # PPTX 템플릿
 ├── company_data/           # 회사 정보
-├── input/                  # 레퍼런스 PPTX 파일 (디자인 참조용)
-│   └── 서울배달플러스_홍보마케팅_제안서.pptx
+├── examples/              # 예제 스크립트 + 레퍼런스 PPTX
+│   ├── example_generate.py    # slide_kit 사용 패턴 예시
+│   └── 서울배달플러스_홍보마케팅_제안서.pptx  # 레퍼런스 디자인
 ├── 제안요청서/             # ★ RFP 입력 (PDF 문서들)
 │   └── 테스트 XX/              # 테스트별 RFP 문서 폴더
 ├── output/                 # ★ PPTX 출력 (생성 스크립트 + 결과물)
@@ -304,7 +303,7 @@ cp .env.example .env
 python main.py generate 제안요청서/테스트\ 01/rfp.pdf -n "프로젝트명" -c "발주처" -t marketing_pr
 
 # 레퍼런스 PPTX 디자인 분석
-python main.py reference-analyze input/서울배달플러스_홍보마케팅_제안서.pptx
+python main.py reference-analyze examples/서울배달플러스_홍보마케팅_제안서.pptx
 ```
 
 ## 제안서 구조: Impact-8 Framework

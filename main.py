@@ -89,7 +89,7 @@ def generate(
         None,
         "--reference",
         "-r",
-        help="레퍼런스 PPTX 경로 (디자인 참조용, 미지정시 input/ 폴더 자동 탐색)",
+        help="레퍼런스 PPTX 경로 (디자인 참조용, 미지정시 examples/ 폴더 자동 탐색)",
     ),
     template: str = typer.Option(
         "modern",
@@ -153,7 +153,7 @@ def generate(
     # 레퍼런스 파일 탐색
     reference_path = reference
     if not reference_path:
-        input_dir = Path("input")
+        input_dir = Path("examples")
         if input_dir.exists():
             pptx_files = list(input_dir.glob("*.pptx"))
             if pptx_files:
