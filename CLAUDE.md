@@ -3,7 +3,7 @@
 ## 프로젝트 개요
 RFP(제안요청서) 문서를 입력받아 PPTX 형식의 입찰 제안서를 자동 생성하는 Python 에이전트 시스템
 
-**작동 방식**: Claude Code가 RFP를 분석하고, `slide_kit.py`를 import하는 Python 생성 스크립트를 직접 작성하여 실행합니다.
+**작동 방식**: Claude Pro 이상 구독의 Claude Code가 RFP를 분석하고, `slide_kit.py`를 import하는 Python 생성 스크립트를 직접 작성하여 실행합니다. (Claude API 키 불필요)
 
 **v3.6 업데이트**: v3.5 + 컬러 유틸(darken/lighten) + 21색 확장 팔레트 + 그라디언트 커버/섹션/클로징 + 그림자 프리셋(subtle/normal/elevated/card) + SemiBold/Medium 타이포 계층 + KPIS/GRID/COLS/TABLE/STAT_ROW/METRIC_CARD 시각 폴리시 + LINE_CHART smooth 버그 수정
 
@@ -276,34 +276,26 @@ save_pptx(prs, "output/파일명.pptx")
 
 ## 사용법
 
-### 방법 1: Claude Code로 제안서 생성 (★ 메인 방식)
+### 사전 준비
+- **Claude Pro 이상 구독** (Pro / Max / Team)
+- **Claude Code CLI** 설치: `npm install -g @anthropic-ai/claude-code`
+- **Python 3.9+** 및 의존성: `pip install -r requirements.txt`
+
+### 제안서 생성
 
 ```bash
-# 1. 의존성 설치
-pip install -r requirements.txt
-
-# 2. RFP 문서를 제안요청서 폴더에 배치
+# 1. RFP 문서를 제안요청서 폴더에 배치
 mkdir -p 제안요청서/테스트\ 01
 cp your_rfp.pdf 제안요청서/테스트\ 01/
+
+# 2. Claude Code 실행 (프로젝트 폴더에서)
+claude
 
 # 3. Claude Code에게 요청
 # "제안요청서 폴더에 있는 테스트 01 폴더 내 파일을 분석한 후 제안서를 제작해줘"
 
 # Claude Code가 자동으로:
 # → RFP 분석 → 콘텐츠 기획 → generate_제안서.py 작성 → 실행 → PPTX 생성
-```
-
-### 방법 2: CLI 자동 파이프라인 (대안)
-
-```bash
-# .env에 ANTHROPIC_API_KEY 설정 필요
-cp .env.example .env
-
-# Claude API 기반 자동 생성
-python main.py generate 제안요청서/테스트\ 01/rfp.pdf -n "프로젝트명" -c "발주처" -t marketing_pr
-
-# 레퍼런스 PPTX 디자인 분석
-python main.py reference-analyze examples/서울배달플러스_홍보마케팅_제안서.pptx
 ```
 
 ## 제안서 구조: Impact-8 Framework
