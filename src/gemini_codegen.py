@@ -11,6 +11,7 @@ gemini_codegen.py — Gemini 기반 제안서 디자인 코드 생성기
 사용법:
   python3 src/gemini_codegen.py output/테스트01/proposal_content.json
   python3 src/gemini_codegen.py output/테스트01/proposal_content.json --reference examples/레퍼런스.pptx
+  python3 src/gemini_codegen.py output/테스트01/proposal_content.json --reference "https://www.behance.net/gallery/..."
   python3 src/gemini_codegen.py output/테스트01/proposal_content.json --design-note "미니멀 블루톤, 여백 많이"
 """
 
@@ -41,6 +42,96 @@ def load_proposal_content(json_path):
         sys.exit(1)
     with open(json_path, "r", encoding="utf-8") as f:
         return json.load(f)
+
+
+def is_url(path):
+    """URL인지 로컬 파일인지 판별"""
+    return path.startswith("http://") or path.startswith("https://")
+
+
+def analyze_url_reference(url, api_key, model="gemini-2.0-flash"):
+    """URL 링크의 디자인 레퍼런스를 Gemini Vision으로 분석"""
+    try:
+        import google.generativeai as genai
+    except ImportError:
+        print("[ERROR] google-generativeai 패키지가 필요합니다.")
+        return None
+
+    try:
+        import urllib.request
+        from pathlib import Path
+        import tempfile
+
+        print(f"[INFO] URL 페이지 다운로드 중: {url}")
+
+        # HTML 페이지 가져오기
+        req = urllib.request.Request(url, headers={
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)"
+        })
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            content_type = resp.headers.get("Content-Type", "")
+            data = resp.read()
+
+        # 이미지 URL인 경우 직접 Gemini Vision으로 분석
+        if any(ext in url.lower() for ext in [".png", ".jpg", ".jpeg", ".webp", ".gif"]):
+            print("[INFO] 이미지 파일 → Gemini Vision 분석")
+            tmp = tempfile.NamedTemporaryFile(suffix=Path(url).suffix, delete=False)
+            tmp.write(data)
+            tmp.close()
+
+            genai.configure(api_key=api_key)
+            model_instance = genai.GenerativeModel(model)
+            img_file = genai.upload_file(tmp.name)
+            response = model_instance.generate_content([
+                img_file,
+                "이 디자인 이미지를 분석해주세요. 다음 항목을 추출하세요:\n"
+                "1. 주요 컬러 팔레트 (HEX 코드)\n"
+                "2. 레이아웃 스타일 (여백, 정렬, 그리드)\n"
+                "3. 타이포그래피 스타일 (제목/본문 크기 비율, 굵기)\n"
+                "4. 시각 요소 스타일 (카드, 아이콘, 차트, 이미지 처리)\n"
+                "5. 전체적인 디자인 톤앤매너 (미니멀/화려/기업/캐주얼 등)\n"
+                "한국어로 응답해주세요."
+            ])
+            os.unlink(tmp.name)
+            return response.text
+
+        # HTML 페이지인 경우 텍스트 추출 후 Gemini로 분석
+        if "html" in content_type.lower() or data[:100].decode("utf-8", errors="ignore").strip().startswith("<!"):
+            print("[INFO] HTML 페이지 → 텍스트 추출 + Gemini 분석")
+            html_text = data.decode("utf-8", errors="ignore")
+
+            # 간단한 태그 제거
+            import re
+            text = re.sub(r"<script[^>]*>.*?</script>", "", html_text, flags=re.DOTALL)
+            text = re.sub(r"<style[^>]*>.*?</style>", "", text, flags=re.DOTALL)
+            text = re.sub(r"<[^>]+>", " ", text)
+            text = re.sub(r"\s+", " ", text).strip()
+            # 최대 5000자
+            text = text[:5000]
+
+            genai.configure(api_key=api_key)
+            model_instance = genai.GenerativeModel(model)
+            response = model_instance.generate_content(
+                f"아래는 디자인 레퍼런스 웹페이지의 텍스트입니다. "
+                f"이 페이지의 디자인 스타일을 분석해주세요:\n"
+                f"1. 주요 컬러 팔레트\n"
+                f"2. 레이아웃 스타일\n"
+                f"3. 타이포그래피\n"
+                f"4. 시각 요소 스타일\n"
+                f"5. 전체 톤앤매너\n\n"
+                f"URL: {url}\n"
+                f"페이지 내용:\n{text}\n\n"
+                f"한국어로 응답해주세요."
+            )
+            return response.text
+
+        # PDF 등 기타 바이너리
+        print(f"[WARN] 지원하지 않는 콘텐츠 타입: {content_type}")
+        return f"디자인 레퍼런스 URL: {url} (자동 분석 불가 — 수동 디자인 지시 사용 권장)"
+
+    except Exception as e:
+        print(f"[WARN] URL 분석 실패: {e}")
+        return f"디자인 레퍼런스 URL: {url} (접근 실패 — 수동 디자인 지시 사용 권장)"
 
 
 def analyze_design_reference(pptx_path):
@@ -162,7 +253,7 @@ def main():
     )
     parser.add_argument(
         "--reference", "-r",
-        help="디자인 레퍼런스 PPTX 경로",
+        help="디자인 레퍼런스 (PPTX 파일 경로 또는 URL 링크)",
         default=None,
     )
     parser.add_argument(
@@ -212,8 +303,18 @@ def main():
     # 3. 디자인 레퍼런스 분석 (선택)
     design_ref = None
     if args.reference:
-        print(f"[STEP 3] 디자인 레퍼런스 분석: {args.reference}")
-        design_ref = analyze_design_reference(args.reference)
+        if is_url(args.reference):
+            # URL 링크 → Gemini로 분석
+            print(f"[STEP 3] 디자인 레퍼런스 URL 분석: {args.reference}")
+            design_ref = analyze_url_reference(args.reference, api_key, model=args.model)
+        elif args.reference.lower().endswith(".pptx"):
+            # 로컬 PPTX 파일 → reference_analyzer로 분석
+            print(f"[STEP 3] 디자인 레퍼런스 PPTX 분석: {args.reference}")
+            design_ref = analyze_design_reference(args.reference)
+        else:
+            # 기타 파일 (이미지 등)
+            print(f"[STEP 3] 디자인 레퍼런스: {args.reference}")
+            design_ref = f"디자인 레퍼런스 파일: {args.reference}"
     else:
         # examples/ 폴더에서 자동 탐색
         examples_dir = os.path.join(PROJECT_ROOT, "examples")
