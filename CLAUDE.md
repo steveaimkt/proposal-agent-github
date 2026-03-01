@@ -3,7 +3,11 @@
 ## 프로젝트 개요
 RFP(제안요청서) 문서를 입력받아 PPTX 형식의 입찰 제안서를 자동 생성하는 Python 에이전트 시스템
 
-**작동 방식**: Claude Pro 이상 구독의 Claude Code가 RFP를 분석하고, `slide_kit.py`를 import하는 Python 생성 스크립트를 직접 작성하여 실행합니다. (Claude API 키 불필요)
+**작동 방식** (2-LLM 분업 구조):
+1. **Claude Code** (Claude Pro 구독) — RFP 분석 + 콘텐츠 기획 → `proposal_content.json` 출력
+2. **사용자** — 원하는 디자인 레퍼런스(PPTX/이미지/텍스트) 추가
+3. **Gemini** (API) — 기획 JSON + 디자인 레퍼런스 + slide_kit API → `generate_제안서.py` 코드 생성
+4. **Python** — 생성 스크립트 실행 → PPTX 출력
 
 **v3.6 업데이트**: v3.5 + 컬러 유틸(darken/lighten) + 21색 확장 팔레트 + 그라디언트 커버/섹션/클로징 + 그림자 프리셋(subtle/normal/elevated/card) + SemiBold/Medium 타이포 계층 + KPIS/GRID/COLS/TABLE/STAT_ROW/METRIC_CARD 시각 폴리시 + LINE_CHART smooth 버그 수정
 
@@ -19,43 +23,36 @@ output/테스트 XX/        ← PPTX 출력 (생성 스크립트 + 결과물)
 
 ### 실행 단계
 
-**STEP 0: 레퍼런스 디자인 분석** (선택 — examples 폴더에 PPTX 있을 때)
-- `examples/` 폴더에 레퍼런스 PPTX 파일이 있으면 디자인 요소 추출
-- 추출 항목: 컬러 팔레트, 폰트, 레이아웃 패턴, 슬라이드 구조
-- 추출된 테마를 `apply_theme()` 또는 직접 `C[]` 딕셔너리에 적용
-- 사용법:
-```python
-from src.utils.reference_analyzer import ReferenceAnalyzer
-analyzer = ReferenceAnalyzer("examples/레퍼런스.pptx")
-profile = analyzer.to_design_profile()  # 디자인 프로파일
-theme = analyzer.to_slide_kit_theme()   # slide_kit 테마 호환 형식
-# slide_kit에 적용:
-from src.generators.slide_kit import C, RGBColor
-for key, rgb in theme.items():
-    if key in C:
-        C[key] = RGBColor(*rgb)
-```
-
-**STEP 1: RFP 분석** (제안요청서 폴더 내 PDF 읽기)
+**STEP 1: RFP 분석** (Claude Code — 제안요청서 폴더 내 PDF 읽기)
 - `제안요청서/테스트 XX/` 내 모든 PDF를 분석
 - 추출 항목: 프로젝트명, 발주처, 과업 범위, 평가 기준, 예산, 일정, 특이사항
 - 프로젝트 유형 판별: marketing_pr / event / it_system / public / consulting
 
-**STEP 2: 콘텐츠 기획** (Impact-8 Phase 구조)
+**STEP 2: 콘텐츠 기획** (Claude Code — Impact-8 Phase 구조)
 - Phase 0~7 콘텐츠를 RFP 맞춤형으로 설계
 - Win Theme 3개 도출
 - Action Title (인사이트 기반 문장형 제목) 작성
 - KPI + 산출근거 설계
+- **결과물을 `output/테스트 XX/proposal_content.json`으로 저장**
 
-**STEP 3: 생성 스크립트 작성**
-- `output/테스트 XX/generate_제안서.py` 스크립트 생성
-- **반드시 slide_kit.py import** (아래 규칙 참조)
-- **LAYOUTS 프리셋 활용** — `get_zones()` 으로 안전 영역 사용
-- 목표 분량: 40~80장 (프로젝트 규모에 따라 조정)
+**STEP 3: 디자인 레퍼런스 추가** (사용자)
+- 사용자가 원하는 디자인 레퍼런스를 `input/` 폴더에 추가
+- 지원 형식: PPTX (자동 분석), 텍스트 설명 (--design-note)
+- 예: `input/디자인_레퍼런스.pptx` 또는 "미니멀 블루톤, 여백 많이"
 
-**STEP 4: 실행 및 검증**
-- 스크립트 실행하여 PPTX 생성
-- 오류 발생 시 즉시 수정 후 재실행
+**STEP 4: Gemini 코드 생성** (Gemini API — 디자인 코드 작성)
+```bash
+python3 src/gemini_codegen.py output/테스트\ XX/proposal_content.json \
+    --reference input/디자인_레퍼런스.pptx \
+    --design-note "미니멀 블루톤" \
+    --execute
+```
+- Gemini가 proposal_content.json + 디자인 레퍼런스 + slide_kit API → `generate_제안서.py` 생성
+- `--execute` 옵션으로 자동 실행하여 PPTX 생성
+
+**STEP 5: 검증 및 수정** (Claude Code)
+- 생성된 PPTX 검증
+- 오류 발생 시 `generate_제안서.py`를 직접 수정 후 재실행
 - 최종 파일 경로 안내
 
 ### 레이아웃 선택 가이드 (내용에 맞게 적용)
@@ -221,81 +218,77 @@ save_pptx(prs, "output/파일명.pptx")
 - Next Step: 다음 단계 안내 / Call to Action
 - Action Title: 인사이트 기반 슬라이드 제목 (Topic Title → Action Title)
 
-## 역할 분리
+## 역할 분리 (2-LLM 분업)
 
-### Claude Code (콘텐츠 생성)
+### Claude Code (기획) — Claude Pro 구독
 - RFP 문서 분석 및 핵심 정보 추출
 - Phase 0~7 제안서 콘텐츠 생성
 - 수주 전략 및 차별화 포인트 도출
 - 실제 콘텐츠 예시 생성 (마케팅/PR)
+- **출력: `proposal_content.json`**
 
-### [회사명] (문서화)
-- PPTX 변환 및 Modern 스타일 디자인 적용
-- 슬라이드 레이아웃 및 포맷팅
-- 차트, 타임라인, 조직도 생성
+### Gemini (디자인 코드) — Gemini API
+- proposal_content.json → slide_kit.py 코드 변환
+- 디자인 레퍼런스 반영 (컬러, 레이아웃, 스타일)
+- PPTX 렌더링 스크립트 (`generate_제안서.py`) 생성
+- **입력: proposal_content.json + 디자인 레퍼런스 + slide_kit API 레퍼런스**
 
 ## 디렉토리 구조
 
 ```
-├── main.py                 # CLI 엔트리포인트
-├── config/
-│   ├── prompts/            # Phase별 프롬프트 템플릿
-│   │   ├── content_guidelines.txt  # v3.1 콘텐츠 작성 가이드라인
-│   │   ├── phase0_hook.txt
-│   │   ├── phase1_summary.txt
-│   │   ├── phase2_insight.txt
-│   │   ├── phase3_concept.txt
-│   │   ├── phase4_action.txt
-│   │   ├── phase5_management.txt
-│   │   ├── phase6_whyus.txt
-│   │   └── phase7_investment.txt
-│   └── design/             # 디자인 설정
-│       └── design_style.py    # Modern 스타일 정의 (v3.1)
+├── CLAUDE.md               # ★ Claude Code 워크플로우 규칙
 ├── src/
-│   ├── parsers/            # 문서 파싱 (PDF, DOCX)
-│   ├── agents/             # Claude 에이전트
-│   ├── generators/         # PPTX 생성 ([회사명])
-│   ├── orchestrators/      # 워크플로우 조율
-│   └── schemas/            # Pydantic 스키마
-│       └── proposal_schema.py  # Impact-8 스키마 (v3.0)
-│   └── utils/              # 유틸리티
-│       ├── logger.py           # 로깅 설정
-│       └── reference_analyzer.py  # 레퍼런스 PPTX 디자인 분석기
-├── templates/              # PPTX 템플릿
-├── company_data/           # 회사 정보
-├── examples/              # 예제 스크립트 + 레퍼런스 PPTX
-│   ├── example_generate.py    # slide_kit 사용 패턴 예시
-│   └── 서울배달플러스_홍보마케팅_제안서.pptx  # 레퍼런스 디자인
-├── 제안요청서/             # ★ RFP 입력 (PDF 문서들)
-│   └── 테스트 XX/              # 테스트별 RFP 문서 폴더
-├── output/                 # ★ PPTX 출력 (생성 스크립트 + 결과물)
-│   └── 테스트 XX/              # 테스트별 출력 폴더
-└── 제안서/                 # 레퍼런스 제안서 (PDF)
-    └── reference_proposal.pdf (비공개)
+│   ├── gemini_codegen.py       # ★ Gemini 디자인 코드 생성기
+│   ├── generators/
+│   │   └── slide_kit.py        # ★ PPTX 렌더링 엔진 (2,270줄)
+│   ├── utils/
+│   │   └── reference_analyzer.py  # 레퍼런스 PPTX 디자인 분석
+│   ├── parsers/                # 문서 파싱 (PDF, DOCX)
+│   ├── agents/                 # Claude 에이전트
+│   ├── schemas/                # Pydantic 스키마
+│   └── orchestrators/          # 워크플로우 조율
+├── config/
+│   ├── prompts/                # Phase별 프롬프트 템플릿 (10개)
+│   └── design/
+│       └── design_style.py     # 디자인 시스템 정의
+├── docs/
+│   └── slide_kit_reference.md  # ★ Gemini용 slide_kit API 가이드
+├── examples/                   # 예제 + 레퍼런스 PPTX
+├── input/                      # ★ 사용자 디자인 레퍼런스 (PPTX)
+├── 제안요청서/                  # ★ RFP 입력 (PDF)
+│   └── 테스트 XX/
+└── output/                     # ★ 생성 결과물
+    └── 테스트 XX/
+        ├── proposal_content.json  # Claude 기획 결과
+        ├── generate_제안서.py     # Gemini 생성 코드
+        └── 제안서.pptx            # 최종 PPTX
 ```
 
 ## 사용법
 
 ### 사전 준비
-- **Claude Pro 이상 구독** (Pro / Max / Team)
-- **Claude Code CLI** 설치: `npm install -g @anthropic-ai/claude-code`
+- **Claude Pro 이상 구독** (Pro / Max / Team) + Claude Code CLI
+- **Gemini API 키** — `export GEMINI_API_KEY=your-key` (Google AI Studio에서 발급)
 - **Python 3.9+** 및 의존성: `pip install -r requirements.txt`
 
 ### 제안서 생성
 
 ```bash
-# 1. RFP 문서를 제안요청서 폴더에 배치
-mkdir -p 제안요청서/테스트\ 01
-cp your_rfp.pdf 제안요청서/테스트\ 01/
-
-# 2. Claude Code 실행 (프로젝트 폴더에서)
+# STEP 1-2: Claude Code가 RFP 분석 + 콘텐츠 기획
 claude
+# → "제안요청서 폴더에 있는 테스트 01 폴더 내 파일을 분석한 후 콘텐츠를 기획해줘"
+# → output/테스트 01/proposal_content.json 저장됨
 
-# 3. Claude Code에게 요청
-# "제안요청서 폴더에 있는 테스트 01 폴더 내 파일을 분석한 후 제안서를 제작해줘"
+# STEP 3: 사용자가 디자인 레퍼런스 추가
+cp design_reference.pptx input/
 
-# Claude Code가 자동으로:
-# → RFP 분석 → 콘텐츠 기획 → generate_제안서.py 작성 → 실행 → PPTX 생성
+# STEP 4: Gemini가 디자인 코드 생성 + 자동 실행
+python3 src/gemini_codegen.py output/테스트\ 01/proposal_content.json \
+    --reference input/design_reference.pptx \
+    --execute
+
+# STEP 5: Claude Code가 결과 검증 및 수정
+# → "생성된 제안서를 검토하고 수정해줘"
 ```
 
 ## 제안서 구조: Impact-8 Framework

@@ -1,6 +1,9 @@
 # PPTX Generation
 python-pptx>=0.6.23
 
+# Gemini API (디자인 코드 생성)
+google-generativeai>=0.8.0
+
 # Document Parsing (레퍼런스 분석용)
 pypdf>=3.17.0
 pdfplumber>=0.10.0
